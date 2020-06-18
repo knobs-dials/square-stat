@@ -1,0 +1,211 @@
+#!/usr/bin/python
+import time
+import curses
+import math
+import subprocess
+
+import squarify
+
+import helpers_exec
+import helpers_log
+
+kilo = 1024
+mega = kilo*kilo
+giga = mega*kilo
+
+
+def starts_with_one_of(s, slist):
+    for tests in slist:
+        if s.startswith(tests):
+            return True
+    return False
+
+def categorize_cmd(cmd):
+    if starts_with_one_of(cmd, ('systemd-',)):
+        return '(systemd)'
+    
+    if starts_with_one_of(cmd, ('oom_reaper','rcuos', 'rcu_', 'kworker', 'ksoftirqd', 'kthreadd', 'migration', 'watchdog',
+                                'khelper', 'kdevtmpfs', 'kworker', 'irq/', 'cpuhp/', 'khungtaskd',
+                                'irqbalance',
+                                'init','getty', 'upstart', 'rsyslog', 'syslog',
+    )):
+        # non-driver kernel stuff
+        return '(kernel+system)'
+    
+    elif starts_with_one_of(cmd, ('z_', 'zvol', 'zfs_', 'arc_', 'l2arc_', 'txg_', 'zil_', 'ext4', 'ecryptfs','jbd2','jfscommit','xfsmalloc')):
+        # filesystem-supporting processes
+        return '(io+filesystem)'
+    elif starts_with_one_of(cmd, ('scsi', 'ata_', 'kswap', 'fsnotify',  'writeback', )):
+        # directly related to disk IO
+        return '(io+filesystem)'
+
+
+    elif starts_with_one_of(cmd, ('gnome-', 'gvfs-', 'gvfsd-', 'gsd-','gdm')):
+        return '(gui)'
+    
+    elif starts_with_one_of(cmd, ('icecast','liquidsoap', # web radio
+                                  
+    )): 
+        return '(netservices)'            
+
+    if '/' in cmd:
+        cmd = cmd.split('/')[-1]
+
+    return cmd
+
+
+ncpus = helpers_exec.num_cpus()
+
+        
+screen = curses.initscr()
+try:
+    curses.noecho()
+    curses.curs_set(0)
+
+    #curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_WHITE)
+    curses.start_color()
+    curses.use_default_colors()
+    num_inited_cols = 0
+    
+    initcolnum = min(curses.COLOR_PAIRS, curses.COLORS) # I should check whether this makes any real sesne
+        
+    for i in range(0, initcolnum):
+        # fgcol = -1 meanings default foreground)
+        #print sum(curses.color_content(i))
+        #time.sleep(0.2)
+        r,g,b = curses.color_content(i)
+        if r>700 or g>700 or b>700: # decide foreground of the pair based on sum(RGB)
+            fgcol = curses.COLOR_BLACK
+        else:
+            fgcol = curses.COLOR_WHITE
+
+        curses.init_pair(i+1, fgcol, i) 
+        num_inited_cols += 1
+
+    if 0:
+        print "inited %d of %d planned colors (COLOR_PAIRS=%d, COLORS=%s)"%(
+            num_inited_cols,
+            initcolnum, curses.COLOR_PAIRS, curses.COLORS)
+        time.sleep(1)
+        
+    while True:       
+        
+        if curses.is_term_resized(curses.COLS,curses.LINES):
+            y, x = screen.getmaxyx()
+            screen.clear()
+            curses.resizeterm(y, x)
+                
+        
+        p = subprocess.Popen("ps --no-header -eo pid,pcpu,comm",shell=True, stdout=subprocess.PIPE)        # rss is non-swapped physical
+        out,_ = p.communicate()
+        pid_cmd_pcpu = {}
+        for line in out.splitlines():
+            #print `line`
+            ll = line.strip().split()
+            pid = ll[0]
+            pcpu = float(ll[1])
+            cmd = ' '.join(ll[2:])
+            pid_cmd_pcpu[pid] = (cmd,pcpu)
+        #print `pid_cmd_pcpu`
+        
+        pername = {}
+
+        for pid in pid_cmd_pcpu:
+            cmd,pcpu = pid_cmd_pcpu[pid]
+            name = cmd
+
+            if pcpu==0.0:
+                continue
+            name = categorize_cmd(cmd)
+            #print '%s --> %s'%(cmd,name)
+            if name not in pername:
+                pername[name]=0
+            #print `mem`
+            pername[name]+=pcpu
+
+        # make list, filter, sum everything under 1% into 'small misc', sort
+        name_cpu = pername.items()
+
+        pcpu_thresh = 0.005*(100*ncpus) # also to filter out 0
+        temp=[]
+        restsize=0
+        for name, pcpu in name_cpu:
+            if pcpu < pcpu_thresh:
+                restsize+=pcpu
+            else:
+                temp.append( (name,pcpu) )
+        temp.append( ('(sumsmaller)', restsize) )
+        name_cpu = temp
+
+        #print name_cpu
+        idlepercent = max( 0, # it's slightly creative with the concept of percent
+                               (100.*ncpus) - sum(cpu   for _,cpu in name_cpu) )
+        if idlepercent>0:
+            name_cpu.append( ('(idle)', idlepercent ) )
+
+            
+        # normalize to 100%, both for rounding error, and because totaling to 600% is weird.
+        totalpercent = sum(pcpu   for name,pcpu in name_cpu)
+        
+        name_cpu = list( (name,(100.*pcpu)/totalpercent)   for name,pcpu in name_cpu)
+        
+            
+        name_cpu.sort(lambda a,b:-cmp(a[1],b[1]))
+        
+        pcpus = list(pcpu   for name, pcpu in name_cpu)
+        # exhaggerate size of the smaller ones somewhat, for readability
+        #pcpus = list(math.pow(pcpu,0.7)   for name, pcpu in name_cpu)
+               
+        #helpers_log.error(`pcpus`)
+        normed = squarify.normalize_sizes(pcpus, curses.COLS,curses.LINES)
+        rects = squarify.squarify(normed, 0, 0, curses.COLS,curses.LINES)
+
+        full = curses.newwin(curses.LINES,curses.COLS,0,0)
+        full.erase()
+        
+        for i, rect in enumerate(rects):
+            x = rect['x']
+            y = rect['y']
+            w = rect['dx']
+            h = rect['dy']
+            x=int(x)
+            y=int(y)
+            w=int(w)
+            h=int(h)
+
+            #helpers_log.error(` x,y,h,w`)
+            #x=int(round(x))
+            #y=int(round(y))
+            #w=int(round(w))
+            #h=int(round(h))
+            try:
+                win = curses.newwin(h,w,y,x)
+                name = name_cpu[i][0]
+                try:
+                    import binascii
+                    checksum = abs(binascii.crc32(name))
+                except:
+                    checksum = sum(list(ord(c) for c in name))
+                colnum = 1+ (checksum%num_inited_cols)
+                #win.clrtobot()
+                win.bkgd( ' ', curses.color_pair(colnum) )
+                win.addstr(1,1, name[:max(0,w-1)] )
+                win.addstr(2,1, ('%d%%'%name_cpu[i][1])[:max(0,w-1)]  )
+                
+                #print `curses.color_pair(colnum)` 
+                #r,g,b = curses.color_content(colnum)
+                #win.addstr(3,1, ('col %s|%s %s %s'%(colnum,r,g,b))[:max(0,w-1)]  )
+                win.redrawwin()
+                win.refresh()
+            except curses.error:
+                pass # assume it's because we're tring to draw out of screen due to rounding blah I should look at 
+            #curses.refresh()
+
+            #for win in wins:
+            #del wins
+            
+        
+        time.sleep(1.25)
+finally:
+    curses.endwin()
+    curses.echo()

@@ -1,0 +1,302 @@
+#!/usr/bin/python
+import os
+import time
+import optparse
+import subprocess
+
+import curses
+import squarify
+
+import helpers_format
+import helpers_log
+
+kilo = 1024
+mega = kilo*kilo
+giga = mega*kilo
+
+
+
+
+
+### Helpers
+
+def fetch_procmem():
+    ' mostly used for totals, which smem and ps do not report ' 
+    f = open('/proc/meminfo')
+    lines = f.readlines()
+    f.close()
+    mi = {}
+    for line in lines:
+        if ':' in line:
+            var, val = line.strip().split(':',1)
+            val = val.strip()
+            if 'kB' in val:
+                val = 1024*int(val.replace('kB','').strip()) # hacky hacky :)
+                mi[var]=val
+    return mi
+
+
+def fetch_smem():
+    ' returns a dict:  pid -> (cmd, memsize) '
+    pid_cmd_mem = {}
+    cmd = ["/usr/bin/smem", '-n','-H', '-c','pid pss swap name']
+    p = subprocess.Popen(cmd,shell=False, stdout=subprocess.PIPE)
+    out,_ = p.communicate()
+    #print out
+    for line in out.splitlines():
+        ll = line.strip().split(None,3)
+        pid, pss, swap, cmd = ll
+        pss = int(pss)*1024
+        swap = int(swap)*1024
+        # clean up cmd we display (if necessary)
+        if ':' in cmd:
+            cmd = cmd.split(':')[0]
+        if '/' in cmd:
+            cmd = cmd.split('/')[-1]
+        if ' ' in cmd:
+            cmd = cmd.split(' ')[0]
+        pid_cmd_mem[pid] = (cmd,pss)
+    return pid_cmd_mem
+
+
+def fetch_ps():
+    ' returns a dict:  pid -> (cmd, memsize) '
+    pid_cmd_mem = {}
+    p = subprocess.Popen("ps --no-header -eo pid,rss,comm",shell=True, stdout=subprocess.PIPE)          # rss is non-swapped physical
+    out,_ = p.communicate()
+    pid_cmd_mem = {}
+    for line in out.splitlines():
+        ll = line.strip().split()
+        pid = ll[0]
+        rss = int(ll[1])*1024
+        cmd = ' '.join(ll[2:])
+        pid_cmd_mem[pid] = (cmd,rss)
+    return pid_cmd_mem
+
+
+def starts_with_one_of(s, slist):
+    for tests in slist:
+        if s.startswith(tests):
+            return True
+    return False
+
+
+def categorize_cmd(cmd):
+    if starts_with_one_of(cmd, ('systemd-',)):
+        return '(systemd)'
+
+    #if starts_with_one_of(cmd, ('postgres', 'mysql', )):  # useful to keep separate, though
+    #    return '(database)'
+    
+    if starts_with_one_of(cmd, ('oom_reaper','rcuos', 'rcu_', 'kworker', 'ksoftirqd', 'kthreadd', 'migration', 'watchdog',
+                                'khelper', 'kdevtmpfs', 'kworker', 'irq/', 'cpuhp/', 'khungtaskd',
+                                'irqbalance',
+                                'init','getty', 'upstart', 'rsyslog', 'syslog',
+    )):
+        # non-driver kernel stuff
+        return '(kernel+system)'
+    
+    if starts_with_one_of(cmd, ('z_', 'zvol', 'zfs_', 'arc_', 'l2arc_', 'txg_', 'zil_', 'ext4', 'ecryptfs','jbd2','jfscommit','xfsmalloc')):
+        # filesystem-supporting processes
+        return '(io+filesystem)'
+    
+    if starts_with_one_of(cmd, ('scsi', 'ata_', 'kswap', 'fsnotify',  'writeback', )):
+        # directly related to disk IO
+        return '(io+filesystem)'
+    
+    if starts_with_one_of(cmd, ('gnome-', 'gvfs-', 'gvfsd-', 'gsd-','gdm')):
+        return '(gui)'
+    
+    if '/' in cmd:
+        cmd = cmd.split('/')[-1]
+
+    return cmd
+
+
+
+
+
+def main():
+    #print `fetch_smem()`
+    #time.sleep(10)
+
+    
+    p=optparse.OptionParser()
+
+    p.add_option('-s','--accurate-shared',  default=False,   action="store_true", dest="ashare",
+                 help="Count shared memory more accurately. Slow, only really necessary when you have much of it. Uses smem, which you need to install. Falls back on not doing this, i.e. ps.")
+
+    options,args = p.parse_args()
+    
+
+    
+    if options.ashare:
+        try:
+            p = subprocess.Popen(["/usr/bin/smem",'-n','-H', '-c','pid name pss swap'],shell=False, stdout=subprocess.PIPE)
+        except OSError:
+            options.ashare = False
+            print "WARNING: not doing accurate shared memory reporting (smem not present, falling back to ps)"
+        time.sleep(2)
+    else:
+        print "INFO: Using faster reporting - that doesn't show shared memory so well"
+        
+    if options.ashare and os.getuid()!=0:
+        print "WARNING: Using smem but not running as root / via sudo:  summary will exclude system"
+        time.sleep(5)
+    
+    screen = curses.initscr()
+    try:
+        curses.noecho()
+        curses.curs_set(0)
+
+        #curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_WHITE)
+        curses.start_color()
+        curses.use_default_colors()
+        num_inited_cols = 0
+
+        initcolnum = min(curses.COLOR_PAIRS, curses.COLORS) # I should check whether this makes any real sesne
+
+        for i in range(0, initcolnum):
+            # fgcol = -1 meanings default foreground)
+            #print sum(curses.color_content(i))
+            #time.sleep(0.2)
+            r,g,b = curses.color_content(i) # this doesn't seem to query what I think it queries
+            #if r>500 or g>500 or b>500: # decide foreground of the pair based on sum(RGB)
+            fgcol = curses.COLOR_BLACK
+            #else:
+            #    fgcol = curses.COLOR_WHITE
+
+            curses.init_pair(i+1, fgcol, i) 
+            num_inited_cols += 1
+
+        if 0:
+            print "inited %d of %d planned colors (COLOR_PAIRS=%d, COLORS=%s)"%(
+                num_inited_cols,
+                initcolnum, curses.COLOR_PAIRS, curses.COLORS)
+            time.sleep(1)
+
+            
+
+        while True:
+            # deal with WINCHes
+            if curses.is_term_resized(curses.COLS,curses.LINES):
+                y, x = screen.getmaxyx()
+                screen.clear()
+                curses.resizeterm(y, x)
+            
+            ### get memory per process
+            if options.ashare:
+                try:
+                    pid_cmd_mem = fetch_smem()
+                except OSError: # shouldn't happen since we checked before starting, but hey
+                    pid_cmd_mem = fetch_ps()
+            else:
+                pid_cmd_mem = fetch_ps()
+
+                    
+            ### sort that into more human-parseable categories
+            pername = {}
+            for pid in pid_cmd_mem:
+                cmd,rss = pid_cmd_mem[pid]
+                name = cmd
+
+                if rss==0.0:
+                    continue
+                name = categorize_cmd(cmd)
+                #print '%s --> %s'%(cmd,name)
+                if name not in pername:
+                    pername[name]=0
+                #print `mem`
+                pername[name]+=rss
+
+                
+            ### augment with some other useful things
+            mi = fetch_procmem()
+            MT  = mi['MemTotal']
+            MF  = mi['MemFree']
+            ST  = mi['SwapTotal']
+            SF  = mi['SwapFree']
+            SU  = ST - SF # swap use
+            CD  = mi['Cached']
+            MS  = mi['Buffers'] + mi['Dirty'] + mi['SUnreclaim'] + mi['Writeback'] # misc system stuff
+            SH  = mi['Shmem'] # TODO: figure out whether this does exactly what I think
+            #CL  = mi['CommitLimit']
+            #CAS = mi['Committed_AS']
+            
+            pername['(kernel)'] = MS
+            if not options.ashare: # ashare means it's added towards processes
+                pername['(shared)'] = SH
+
+            # CONSIDER: make this a separate bar, maybe just first line. But maybe just don't show at all?
+            #pername['swap_used'] = SU # TODO: force RED color
+            #pername['swap_free'] = SF
+
+            pername['(unused)'] = MF    # MT - (CD + sum(pername.values())) # not sure about this
+            pername['(caches, usable)']  = CD
+
+            
+
+            # make list, filter, sum everything under 1% into 'small misc', sort
+            name_mem = pername.items()
+
+            size_thresh = 100*mega # 0.003*MT
+            temp=[]
+            restsize=0
+            for name, mem in name_mem:
+                if mem < size_thresh:
+                    restsize+=mem
+                else:
+                    temp.append( (name,mem) )
+            temp.append( ('(sumsmaller)', restsize) )
+            name_mem = temp
+
+            name_mem.sort(lambda a,b:-cmp(a[1],b[1]))
+
+            rsses = list(mem   for name, mem in name_mem)
+            normed = squarify.normalize_sizes(rsses, curses.COLS,curses.LINES)
+            rects = squarify.squarify(normed, 0, 0, curses.COLS,curses.LINES)
+
+            for i, rect in enumerate(rects):
+                x = rect['x']
+                y = rect['y']
+                w = rect['dx']
+                h = rect['dy']
+                x=int(round(x))
+                y=int(round(y))
+                w=int(round(w))
+                h=int(round(h))
+                try:
+                    win = curses.newwin(h,w,y,x)
+                    name = name_mem[i][0]
+
+                    win.addstr(1,1, name[:max(0,w-1)] )
+                    win.addstr(2,1, ('%sB'%helpers_format.kmg(name_mem[i][1],kilo=1024))[:max(0,w-1)]  )
+                    #win.border('|', '|', '-', '-', '+','+','+','+')
+                    try:
+                        import binascii
+                        checksum = abs(binascii.crc32(name))
+                    except:
+                        checksum = sum(list(ord(c) for c in name))
+                    colnum = 1+ (checksum%num_inited_cols)
+                    #print `curses.color_pair(colnum)` 
+                    #r,g,b = curses.color_content(colnum)
+                    #win.addstr(3,1, ('col %s|%s %s %s'%(colnum,r,g,b))[:max(0,w-1)]  )
+                    win.bkgd( ' ', curses.color_pair(colnum) )
+                except curses.error:
+                    pass # assume it's because we're tring to draw out of screen due to rounding blah I should look at 
+                win.refresh()
+
+                #for win in wins:
+                #del wins
+
+            if options.ashare:
+                time.sleep(5) # back off the CPU use if we're using smem
+            else:
+                time.sleep(0.25)
+                
+    finally:
+        curses.endwin()
+        curses.echo()
+
+if __name__ == '__main__':
+    main()

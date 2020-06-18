@@ -17,3 +17,7 @@ One good example is how postgres workers extensively use shared memory, and with
 
 
 Again, it's an experiment. There are various known bugs.
+
+![CPU screenshot](/screenshots/square-cpu.png?raw=true)
+
+![memory screenshot](/screenshots/square-mem.png?raw=true)

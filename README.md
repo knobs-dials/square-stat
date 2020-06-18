@@ -16,7 +16,8 @@ One good example is how postgres workers extensively use shared memory, and with
 
 
 
-Again, it's an experiment. There are various known bugs.
+Again, it's an experiment. There are various known bugs. 
+Not least of which is my misunderstanding of curses colors. And layout.
 
 ![CPU screenshot](/screenshots/square-cpu.png?raw=true)
 

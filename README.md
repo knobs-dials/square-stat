@@ -1,8 +1,9 @@
 # squarestuff
 
-Experiment with squarified treemaps representing things like CPU and memory use - in text shells.
+Text-shell squarified treemaps presenting things like CPU and memory use - in text shells.
 
-Tries to group some known cases, in particular a bunch of kernel stuff into a group called kernel.
+Tries to group some known process sets, e.g. kernel stuff, systemd stuff, and unknown-but-tiny ones into 'sumsmaller' so they don't fall away. A shell isn't exactly high resolution, and this is for a glanced overview.
+
 
 Depends on the
 - curses
@@ -12,13 +13,13 @@ Depends on the
 
 In particular square-mem is an experiment, because getting things like shared memory right is important to accuracy in some uses.
 
-One good example is how postgres workers extensively use shared memory, and without considering this you would massively over-report. But the tool we use for this, smem, is also very slow and sort of CPU-heavy.
+One good example is postgres workers extensively using shared memory, and just adding processes' memory map figures would massively over-report its use, as well as the amount of memory there is.  But the tool we use to fix this, smem, is also very slow and sort of CPU-heavy. Which is why this isn't even the default right now.
 
+TODO:
+- learn curses better
+    - stop misunderstanding curses colors
+    - fix layouting bugs (it's integer rounding things)
+    - fix redrawing
 
+![CPU and memory, split in tmux](/screenshots/squarestuff.png?raw=true)
 
-Again, it's an experiment. There are various known bugs. 
-Not least of which is my misunderstanding of curses colors. And layout.
-
-![CPU screenshot](/screenshots/square-cpu.png?raw=true)
-
-![memory screenshot](/screenshots/square-mem.png?raw=true)

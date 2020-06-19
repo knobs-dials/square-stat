@@ -7,9 +7,6 @@ import subprocess
 import curses
 import squarify
 
-import helpers_format
-import helpers_log
-
 kilo = 1024
 mega = kilo*kilo
 giga = mega*kilo
@@ -19,6 +16,89 @@ giga = mega*kilo
 
 
 ### Helpers
+
+def kmg(amount,kilo=1000, append='',thresh=15, nextup=0.9, rstrip0=True, extradigits=0, i_for_1024=True):
+    """ For more easily skimmable sizes
+
+        e.g.
+             kmg(3429873278462) == '3.4T'
+             kmg(342987327)     == '343M'
+             kmg(34298)         == '34K'
+
+             '%sB'%kmg(2342342324)                           == '2.3GB'
+             '%sB'%kmg(2342342324, kilo=1024)                == '2.2GiB'
+             '%sB'%kmg(2342342324, kilo=1024, extradigits=1) == '2.18GiB'
+             '%sB'%kmg(19342342324, kilo=1024)                == '18GiB'
+             '%sB'%kmg(19342342324, kilo=1024, extradigits=1) == '18GiB'  (because of rstrip0)
+
+        Decimal/SI kilos by default, so useful beyond bytes.
+        Specify kilo=1024 if you want binary kilos. By default this also adds the i.
+
+        thresh is the controls where we take one digit away, e.g. for 1.3GB but 16GB.
+        Default is at 15 which is entirely arbitrary. 
+        Disable using None.
+
+        nextup makes us switch to the next higher up earlier, e.g. 700GB but 0.96TB
+        Disable using None.
+ 
+        extradigits=1 (or maybe more) to unconditionally see a less-rounded number
+        (though note rstrip can still apply)
+
+        rstrip0     whether to take off '.0' if present (defaults to true)
+        append      is mostly meant for optional space between number and unit.
+    """
+    ret = None
+
+    mega = kilo*kilo
+    giga = mega*kilo
+    tera = giga*kilo
+    peta = tera*kilo
+    exa   = peta*kilo
+    zetta = exa*kilo
+    yotta = zetta*kilo
+
+    if nextup==None:
+        nextup = 1.0
+    if thresh==None:
+        thresh = 1000
+    nextup = float(nextup)
+
+    # Yes, could be handled a bunch more more compactly (and used to be)
+
+    showdigits=0
+    if abs(amount) < nextup*kilo: # less than a kilo; omits multiplier and i
+        showval = amount
+    else:
+        for csize, mchar in ( (peta, 'P'),
+                              (tera, 'T'),
+                              (giga, 'G'),
+                              (mega, 'M'),
+                              (kilo, 'K'),
+                              #(exa,  'E'),# exa, zetta, yotta is shown as peta amounts. Too large to comprehend anyway.
+                              #(zeta, 'Z'),
+                              #(yotta,'Y'),
+           ):
+            if abs(amount) > nextup*csize:
+                showval = amount/float(csize)
+                if showval<thresh:
+                    showdigits = 1 + extradigits
+                else:
+                    showdigits = 0 + extradigits
+                append += mchar
+                if i_for_1024 and kilo==1024:
+                    append += 'i'
+                break
+
+    ret = ("%%.%df"%(showdigits))%showval
+
+    if rstrip0:
+        if '.' in ret:
+            ret=ret.rstrip('0').rstrip('.')
+
+    ret+=append
+
+    return ret
+
 
 def fetch_procmem():
     ' mostly used for totals, which smem and ps do not report ' 
@@ -270,7 +350,7 @@ def main():
                     name = name_mem[i][0]
 
                     win.addstr(1,1, name[:max(0,w-1)] )
-                    win.addstr(2,1, ('%sB'%helpers_format.kmg(name_mem[i][1],kilo=1024))[:max(0,w-1)]  )
+                    win.addstr(2,1, ('%sB'%kmg(name_mem[i][1],kilo=1024))[:max(0,w-1)]  )
                     #win.border('|', '|', '-', '-', '+','+','+','+')
                     try:
                         import binascii

@@ -6,12 +6,28 @@ import subprocess
 
 import squarify
 
-import helpers_exec
-import helpers_log
-
 kilo = 1024
 mega = kilo*kilo
 giga = mega*kilo
+
+
+def num_cpus(fallback=None):
+    # I have a much better version somewhere.
+    cprocs = 0
+    try:
+        f = open('/proc/cpuinfo')
+        for line in f:
+            if 'processor' in line:
+                cprocs += 1
+    except:
+        raise
+    finally:
+        f.close()
+
+    if cprocs==0:
+        return fallback
+    else:
+        return cprocs
 
 
 def starts_with_one_of(s, slist):
@@ -54,7 +70,7 @@ def categorize_cmd(cmd):
     return cmd
 
 
-ncpus = helpers_exec.num_cpus()
+ncpus = num_cpus()
 
         
 screen = curses.initscr()

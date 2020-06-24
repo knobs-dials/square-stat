@@ -16,7 +16,7 @@ Tries to group some known process sets, e.g.
 ### Dependencies
 - curses
 - [squarify](https://github.com/laserson/squarify) (python package)   
-- smem CLI tool (optional)
+- [smem](https://www.selenic.com/smem/) CLI tool (optional)
 
 
 ### Very much an experiment

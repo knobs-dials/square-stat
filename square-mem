@@ -195,7 +195,7 @@ def main():
         initcolnum = min(curses.COLOR_PAIRS, curses.COLORS) # I should check whether this makes any real sesne
             
         if curses.COLORS in (8,256):
-            import syslog
+            #import syslog
             while num_inited_cols < curses.COLOR_PAIRS:
                 for bg in range(8):
                     if bg in (7,6,5,3,2): # brighter colors
@@ -211,7 +211,7 @@ def main():
                     if num_inited_cols > curses.COLOR_PAIRS:
                         break
 
-            syslog.syslog("inited %d color pairs"%num_inited_cols)
+            #syslog.syslog("inited %d color pairs"%num_inited_cols)
 
         while True:
             # deal with WINCHes
@@ -239,12 +239,11 @@ def main():
                 if rss==0.0:
                     continue
                 name = categorize_cmd(cmd)
-                #print '%s --> %s'%(cmd,name)
                 if name not in pername:
                     pername[name]=0
-                #print `mem`
                 pername[name]+=rss
-
+                #syslog.syslog( '%s --> %s  (%s)'%(cmd,name, kmg(rss)) )
+                
                 
             ### augment with some other useful things
             mi = fetch_procmem()
@@ -258,8 +257,14 @@ def main():
             SH  = mi['Shmem'] # TODO: figure out whether this does exactly what I think
             #CL  = mi['CommitLimit']
             #CAS = mi['Committed_AS']
-            
-            pername['(kernel)'] = MS
+            if 0:
+                pername['(kernel)'] = MS
+            else:
+                pername['(k/buffers)'] = mi['Buffers']
+                pername['(k/dirty)'] = mi['Dirty']
+                pername['(k/unreclaim)'] = mi['SUnreclaim']
+                pername['(k/writeback)'] = mi['Writeback']
+                
             if not options.ashare: # ashare means it's added towards processes
                 pername['(shared)'] = SH
 
@@ -267,8 +272,11 @@ def main():
             #pername['swap_used'] = SU # TODO: force RED color
             #pername['swap_free'] = SF
 
-            pername['(unused)'] = MF    # MT - (CD + sum(pername.values())) # not sure about this
-            pername['(caches, usable)']  = CD
+            if 1:
+                pername['(unused)'] = MF    # MT - (CD + sum(pername.values())) # not sure about this
+                pername['(caches, usable)']  = CD
+            else:
+                pername['(available)'] = MF+CD
 
             
 
@@ -326,6 +334,10 @@ def main():
                     colnum = 1+ (checksum%num_inited_cols)
                     if name=='(caches, usable)':
                         colnum = 0 # under current color logic this forces it to black
+                    if name=='(unused)':
+                        colnum = 0 
+                    if name=='(available)':
+                        colnum = 0 
                     
                     #print `curses.color_pair(colnum)` 
                     #r,g,b = curses.color_content(colnum)

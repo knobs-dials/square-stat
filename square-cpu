@@ -180,6 +180,8 @@ try:
                 except:
                     checksum = sum(list(ord(c) for c in name))
                 colnum = 1+ (checksum % num_inited_cols)
+                if name=='(idle)':
+                    colnum = 0 # under current color logic this forces it to black
                 #syslog.syslog( `colnum` )
                 #win.clrtobot()
                 win.bkgd( ' ', curses.color_pair(colnum) )

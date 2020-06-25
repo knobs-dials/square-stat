@@ -322,6 +322,9 @@ def main():
                     except:
                         checksum = sum(list(ord(c) for c in name))
                     colnum = 1+ (checksum%num_inited_cols)
+                    if name=='(caches, usable)':
+                        colnum = 0 # under current color logic this forces it to black
+                    
                     #print `curses.color_pair(colnum)` 
                     #r,g,b = curses.color_content(colnum)
                     #win.addstr(3,1, ('col %s|%s %s %s'%(colnum,r,g,b))[:max(0,w-1)]  )

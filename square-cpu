@@ -41,9 +41,8 @@ try:
     curses.noecho()
     curses.curs_set(0)
 
-    #curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_WHITE)
     curses.start_color()
-    curses.use_default_colors()
+    curses.use_default_colors() # 
     num_inited_cols = 0
     
     initcolnum = min(curses.COLOR_PAIRS, curses.COLORS) # I should check whether this makes any real sesne
@@ -93,13 +92,11 @@ try:
         out,_ = p.communicate()
         pid_cmd_pcpu = {}
         for line in out.splitlines():
-            #print `line`
             ll = line.strip().split()
             pid = ll[0]
             pcpu = float(ll[1])
             cmd = ' '.join(ll[2:])
             pid_cmd_pcpu[pid] = (cmd,pcpu)
-        #print `pid_cmd_pcpu`
         
         pername = {}
 
@@ -110,10 +107,8 @@ try:
             if pcpu==0.0:
                 continue
             name = categorize_cmd(cmd)
-            #print '%s --> %s'%(cmd,name)
             if name not in pername:
                 pername[name]=0
-            #print `mem`
             pername[name]+=pcpu
 
         # make list, filter, sum everything under 1% into 'small misc', sort
@@ -130,7 +125,6 @@ try:
         temp.append( ('(sumsmaller)', restsize) )
         name_cpu = temp
 
-        #print name_cpu
         idlepercent = max( 0, # it's slightly creative with the concept of percent
                                (100.*ncpus) - sum(cpu   for _,cpu in name_cpu) )
         if idlepercent>0:
@@ -149,28 +143,28 @@ try:
         # exhaggerate size of the smaller ones somewhat, for readability
         #pcpus = list(math.pow(pcpu,0.7)   for name, pcpu in name_cpu)
                
-        #helpers_log.error(`pcpus`)
         normed = squarify.normalize_sizes(pcpus, curses.COLS,curses.LINES)
         rects = squarify.squarify(normed, 0, 0, curses.COLS,curses.LINES)
 
         full = curses.newwin(curses.LINES,curses.COLS,0,0)
-        full.erase()
+        full.clear()
+        full.refresh()
         
         for i, rect in enumerate(rects):
             x = rect['x']
             y = rect['y']
             w = rect['dx']
             h = rect['dy']
-            x=int(x)
-            y=int(y)
-            w=int(w)
-            h=int(h)
-
+            #x=int(x)
+            #y=int(y)
+            #w=int(w)
+            #h=int(h)
+            #TODO: check whether this math and ceil stuff is correct, I suspect it isn't.
+            x=int(math.floor(round(x)))
+            y=int(math.floor(round(y)))
+            w=int(math.ceil(round(w)))
+            h=int(math.ceil(round(h)))
             #helpers_log.error(` x,y,h,w`)
-            #x=int(round(x))
-            #y=int(round(y))
-            #w=int(round(w))
-            #h=int(round(h))
             try:
                 win = curses.newwin(h,w,y,x)
                 name = name_cpu[i][0]
@@ -182,23 +176,15 @@ try:
                 colnum = 1+ (checksum % num_inited_cols)
                 if name=='(idle)':
                     colnum = 0 # under current color logic this forces it to black
-                #syslog.syslog( `colnum` )
                 #win.clrtobot()
+                #win.border()
                 win.bkgd( ' ', curses.color_pair(colnum) )
                 win.addstr(1,1, name[:max(0,w-1)] )
                 win.addstr(2,1, ('%d%%'%name_cpu[i][1])[:max(0,w-1)]  )
-                
-                #print `curses.color_pair(colnum)` 
-                #r,g,b = curses.color_content(colnum)
-                #win.addstr(3,1, ('col %s|%s %s %s'%(colnum,r,g,b))[:max(0,w-1)]  )
                 win.redrawwin()
                 win.refresh()
             except curses.error:
                 pass # assume it's because we're tring to draw out of screen due to rounding blah I should look at 
-            #curses.refresh()
-
-            #for win in wins:
-            #del wins
             
         
         time.sleep(1.25)

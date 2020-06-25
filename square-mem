@@ -201,27 +201,25 @@ def main():
         num_inited_cols = 0
 
         initcolnum = min(curses.COLOR_PAIRS, curses.COLORS) # I should check whether this makes any real sesne
-
-        for i in range(0, initcolnum):
-            # fgcol = -1 meanings default foreground)
-            #print sum(curses.color_content(i))
-            #time.sleep(0.2)
-            r,g,b = curses.color_content(i) # this doesn't seem to query what I think it queries
-            #if r>500 or g>500 or b>500: # decide foreground of the pair based on sum(RGB)
-            fgcol = curses.COLOR_BLACK
-            #else:
-            #    fgcol = curses.COLOR_WHITE
-
-            curses.init_pair(i+1, fgcol, i) 
-            num_inited_cols += 1
-
-        if 0:
-            print "inited %d of %d planned colors (COLOR_PAIRS=%d, COLORS=%s)"%(
-                num_inited_cols,
-                initcolnum, curses.COLOR_PAIRS, curses.COLORS)
-            time.sleep(1)
-
             
+        if curses.COLORS in (8,256):
+            import syslog
+            while num_inited_cols < curses.COLOR_PAIRS:
+                for bg in range(8):
+                    if bg in (7,6,5,3,2): # brighter colors
+                        fg=0 # black
+                    else: # darker colors (black, red, blue)
+                        fg = 7 # white
+                        # CONSIDER: also using bright white, 15
+
+                    if fg!=bg:
+                        num_inited_cols += 1
+                        curses.init_pair(num_inited_cols, fg, bg)
+
+                    if num_inited_cols > curses.COLOR_PAIRS:
+                        break
+
+            syslog.syslog("inited %d color pairs"%num_inited_cols)
 
         while True:
             # deal with WINCHes

@@ -22,8 +22,8 @@ Tries to group some known process sets, e.g.
 ### Very much an experiment
 In particular square-mem is a test, because getting things like shared memory right is important to accuracy in some uses.
 
-One good example is postgres workers extensively using shared memory for table data, and just adding processes' memory map figures would rather over-report its use, as well as the amount of memory there is.
-The smem tool fixes this fix this, but also sort of slow and CPU-heavy. Which is why this isn't even the default right now.
+One good example is postgres workers extensively using shared memory for table data, so just  processes' mapped total would over-report use more than a little. Also sums up to total memory would look weird.
+The smem tool fixes this, but is slowish and CPU-heavy. Which is why this isn't the default right now.
 
 ### TODO
 - learn curses better

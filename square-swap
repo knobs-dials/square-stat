@@ -1,0 +1,275 @@
+#!/usr/bin/python
+import os
+import time
+import math
+import optparse
+import subprocess
+import glob
+
+import curses
+import squarify
+
+kilo = 1024
+mega = kilo*kilo
+giga = mega*kilo
+
+
+
+
+### Helpers
+
+def kmg(amount,kilo=1000, append='',thresh=15, nextup=0.9, rstrip0=True, extradigits=0, i_for_1024=True):
+    """ For more easily skimmable sizes
+
+        e.g.
+             kmg(3429873278462) == '3.4T'
+             kmg(342987327)     == '343M'
+             kmg(34298)         == '34K'
+
+             '%sB'%kmg(2342342324)                           == '2.3GB'
+             '%sB'%kmg(2342342324, kilo=1024)                == '2.2GiB'
+             '%sB'%kmg(2342342324, kilo=1024, extradigits=1) == '2.18GiB'
+             '%sB'%kmg(19342342324, kilo=1024)                == '18GiB'
+             '%sB'%kmg(19342342324, kilo=1024, extradigits=1) == '18GiB'  (because of rstrip0)
+
+        Decimal/SI kilos by default, so useful beyond bytes.
+        Specify kilo=1024 if you want binary kilos. By default this also adds the i.
+
+        thresh is the controls where we take one digit away, e.g. for 1.3GB but 16GB.
+        Default is at 15 which is entirely arbitrary. 
+        Disable using None.
+
+        nextup makes us switch to the next higher up earlier, e.g. 700GB but 0.96TB
+        Disable using None.
+ 
+        extradigits=1 (or maybe more) to unconditionally see a less-rounded number
+        (though note rstrip can still apply)
+
+        rstrip0     whether to take off '.0' if present (defaults to true)
+        append      is mostly meant for optional space between number and unit.
+    """
+    ret = None
+
+    mega = kilo*kilo
+    giga = mega*kilo
+    tera = giga*kilo
+    peta = tera*kilo
+    exa   = peta*kilo
+    zetta = exa*kilo
+    yotta = zetta*kilo
+
+    if nextup==None:
+        nextup = 1.0
+    if thresh==None:
+        thresh = 1000
+    nextup = float(nextup)
+
+    # Yes, could be handled a bunch more more compactly (and used to be)
+
+    showdigits=0
+    if abs(amount) < nextup*kilo: # less than a kilo; omits multiplier and i
+        showval = amount
+    else:
+        for csize, mchar in ( (peta, 'P'),
+                              (tera, 'T'),
+                              (giga, 'G'),
+                              (mega, 'M'),
+                              (kilo, 'K'),
+                              #(exa,  'E'),# exa, zetta, yotta is shown as peta amounts. Too large to comprehend anyway.
+                              #(zeta, 'Z'),
+                              #(yotta,'Y'),
+           ):
+            if abs(amount) > nextup*csize:
+                showval = amount/float(csize)
+                if showval<thresh:
+                    showdigits = 1 + extradigits
+                else:
+                    showdigits = 0 + extradigits
+                append += mchar
+                if i_for_1024 and kilo==1024:
+                    append += 'i'
+                break
+
+    ret = ("%%.%df"%(showdigits))%showval
+
+    if rstrip0:
+        if '.' in ret:
+            ret=ret.rstrip('0').rstrip('.')
+
+    ret+=append
+
+    return ret
+
+
+def fetch_procmem():
+    ' mostly used for totals, which smem and ps do not report ' 
+    f = open('/proc/meminfo')
+    lines = f.readlines()
+    f.close()
+    mi = {}
+    for line in lines:
+        if ':' in line:
+            var, val = line.strip().split(':',1)
+            val = val.strip()
+            if 'kB' in val:
+                val = 1024*int(val.replace('kB','').strip()) # hacky hacky :)
+                mi[var]=val
+    return mi
+
+
+
+
+def main():
+    p=optparse.OptionParser()
+
+    p.add_option('-f','--show-free',  default=False,   action="store_true", dest="showfree",
+                 help="Show free space too")
+    
+    options,args = p.parse_args()
+        
+    screen = curses.initscr()
+    try:
+        curses.noecho()
+        curses.curs_set(0)
+
+        #curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_WHITE)
+        curses.start_color()
+        curses.use_default_colors()
+        num_inited_cols = 0
+
+        initcolnum = min(curses.COLOR_PAIRS, curses.COLORS) # I should check whether this makes any real sesne
+            
+        if curses.COLORS in (8,256):
+            #import syslog
+            while num_inited_cols < curses.COLOR_PAIRS:
+                for bg in range(8):
+                    if bg in (7,6,5,3,2): # brighter colors
+                        fg=0 # black
+                    else: # darker colors (black, red, blue)
+                        fg = 7 # white
+                        # CONSIDER: also using bright white, 15
+
+                    if fg!=bg:
+                        num_inited_cols += 1
+                        curses.init_pair(num_inited_cols, fg, bg)
+
+                    if num_inited_cols > curses.COLOR_PAIRS:
+                        break
+
+            #syslog.syslog("inited %d color pairs"%num_inited_cols)
+
+        while True:
+            # deal with WINCHes
+            if curses.is_term_resized(curses.COLS,curses.LINES):
+                y, x = screen.getmaxyx()
+                screen.clear()
+                curses.resizeterm(y, x)
+
+                
+            pername = {}            
+            for fn in glob.glob('/proc/*/status'):
+                try:
+                    _,pid,_  = fn.strip('/').split('/')
+                    int(pid)
+                except:
+                    continue
+
+                try:
+                    f = open(fn)
+                    try:
+                        size, name = None,None
+                        for line in f:
+                            if line.startswith('VmSwap'):
+                                size, unit = line.split(':',1)[1].strip().split()
+                                size = int(size)
+                                if unit == 'kB':
+                                    size *= 1024
+                                else:
+                                    raise ValueError('TODO: deal with unit %r'%unit)
+                            if line.startswith('Name'):
+                                name = line[5:].strip()
+
+                        if size!=None: # e.g. kernel processes don't have swap entries
+                            if name not in pername:
+                                pername[name] = 0
+                            pername[name] += size
+                    finally:
+                        f.close()
+                except IOError: # process entry left beween glob and open
+                    pass
+                    
+            if options.showfree:                
+                d = fetch_procmem()
+                pername['(free)'] = d['SwapFree']
+
+            
+            # make list, filter, sum everything under 1% into 'small misc', sort
+            name_mem = pername.items()
+                        
+            size_thresh = 10*mega  # 0.001*MT
+            temp=[]
+            restsize=0
+            for name, mem in name_mem:
+                if mem < size_thresh and name not in ('(free)'):
+                    restsize+=mem
+                else:
+                    temp.append( (name,mem) )
+            temp.append( ('(sumsmaller)', restsize) )
+            name_mem = temp
+
+            name_mem.sort(lambda a,b:-cmp(a[1],b[1]))
+
+            rsses = list(mem   for name, mem in name_mem)
+            normed = squarify.normalize_sizes(rsses, curses.COLS,curses.LINES)
+            rects = squarify.squarify(normed, 0, 0, curses.COLS,curses.LINES)
+
+            full = curses.newwin(curses.LINES,curses.COLS,0,0)
+            full.clear()
+            full.refresh()
+            
+            for i, rect in enumerate(rects):
+                x = rect['x']
+                y = rect['y']
+                w = rect['dx']
+                h = rect['dy']
+                #TODO: check whether this math and ceil stuff is correct, I suspect it isn't.
+                x=int(math.floor(round(x)))
+                y=int(math.floor(round(y)))
+                w=int(math.ceil(round(w)))
+                h=int(math.ceil(round(h)))
+                try:
+                    win = curses.newwin(h,w,y,x)
+                    name = name_mem[i][0]
+
+                    #win.border()
+                    win.addstr(1,1, name[:max(0,w-1)] )
+                    win.addstr(2,1, ('%sB'%kmg(name_mem[i][1],kilo=1024))[:max(0,w-1)]  )
+                    #win.border('|', '|', '-', '-', '+','+','+','+')
+                    try:
+                        import binascii
+                        checksum = abs(binascii.crc32(name))
+                    except:
+                        checksum = sum(list(ord(c) for c in name))
+                    colnum = 1+ (checksum%num_inited_cols)
+                    
+                    if name=='(free)':
+                        colnum = 0 
+                    
+                    #print `curses.color_pair(colnum)` 
+                    #r,g,b = curses.color_content(colnum)
+                    #win.addstr(3,1, ('col %s|%s %s %s'%(colnum,r,g,b))[:max(0,w-1)]  )
+                    win.bkgd( ' ', curses.color_pair(colnum) )
+                except curses.error:
+                    pass # assume it's because we're tring to draw out of screen due to rounding blah I should look at 
+                win.refresh()
+
+            time.sleep( 1 )
+        
+    finally:
+        curses.endwin()
+        curses.echo()
+
+if __name__ == '__main__':
+    main()
+
+

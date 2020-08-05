@@ -162,8 +162,11 @@ def main():
     p=optparse.OptionParser()
 
     p.add_option('-s','--accurate-shared',  default=False,   action="store_true", dest="ashare",
-                 help="Count shared memory more accurately. Slow, only really necessary when you have much of it. Uses smem, which you need to install. Falls back on not doing this, i.e. ps.")
+                 help="Count shared memory more accurately. Slow, only really necessary when you have much of it. Uses smem, which you need to install. Falls back on not doing this, i.e. using ps.")
 
+    p.add_option('-S','--show-swap',  default=False,   action="store_true", dest="showswap",
+                 help="Add used and free swap")
+    
     options,args = p.parse_args()
     
 
@@ -249,45 +252,48 @@ def main():
             mi = fetch_procmem()
             MT  = mi['MemTotal']
             MF  = mi['MemFree']
-            ST  = mi['SwapTotal']
-            SF  = mi['SwapFree']
-            SU  = ST - SF # swap use
+
+            pername['(unused)'] = MF
+
             CD  = mi['Cached']
-            MS  = mi['Buffers'] + mi['Dirty'] + mi['SUnreclaim'] + mi['Writeback'] # misc system stuff
+            pername['(caches, usable)']  = CD + mi['SReclaimable'] 
+
+
+            #pername['(kernel)'] = mi['Buffers'] + mi['Dirty'] + mi['Writeback'] + mi['SUnreclaim']  # misc system stuff
+            # split out because sometimes SUnreclaim is large (e.g. ZFS ARC).   They may well fall into (sumsmaller) anyway
+            pername['(k/buffers)'] = mi['Buffers']
+            pername['(k/dirty)'] = mi['Dirty']
+            pername['(k/writeback)'] = mi['Writeback']
+            pername['(k/slab unreclaim)'] = mi['SUnreclaim']  # note: SReclaimable is counted towards caches
+            # CONSIDER using slabinfor to estimate largest abusers, e.g. ZFS ARC. (Except I don't think you can tell the differene between reclaim and unreclaim)
+
             SH  = mi['Shmem'] # TODO: figure out whether this does exactly what I think
             #CL  = mi['CommitLimit']
             #CAS = mi['Committed_AS']
-            if 0:
-                pername['(kernel)'] = MS
-            else:
-                pername['(k/buffers)'] = mi['Buffers']
-                pername['(k/dirty)'] = mi['Dirty']
-                pername['(k/unreclaim)'] = mi['SUnreclaim']
-                pername['(k/writeback)'] = mi['Writeback']
-                
-            if not options.ashare: # ashare means it's added towards processes
-                pername['(shared)'] = SH
-
-            # CONSIDER: make this a separate bar, maybe just first line. But maybe just don't show at all?
-            #pername['swap_used'] = SU # TODO: force RED color
-            #pername['swap_free'] = SF
-
-            if 1:
-                pername['(unused)'] = MF    # MT - (CD + sum(pername.values())) # not sure about this
-                pername['(caches, usable)']  = CD
-            else:
-                pername['(available)'] = MF+CD
-
             
+            # ashare means it's added towards processes. 
+            if not options.ashare: # If not, though, we add some indication of it here (overestimated!)
+                pername['(shared, overestimated)'] = SH
+
+            ST  = mi['SwapTotal']
+            SF  = mi['SwapFree']
+            SU  = ST - SF # swap use
+            
+            if options.showswap:
+                # CONSIDER: make this a separate bar, maybe just first line.
+                pername['(swap_used)'] = SU # TODO: force RED color
+                pername['(swap_free)'] = SF
+
+
 
             # make list, filter, sum everything under 1% into 'small misc', sort
             name_mem = pername.items()
 
-            size_thresh = 100*mega # 0.003*MT
+            size_thresh = 100*mega  # 0.003*MT
             temp=[]
             restsize=0
             for name, mem in name_mem:
-                if mem < size_thresh:
+                if mem < size_thresh and name not in ('(unused)','(caches, usable)'):
                     restsize+=mem
                 else:
                     temp.append( (name,mem) )
@@ -337,6 +343,8 @@ def main():
                     if name=='(unused)':
                         colnum = 0 
                     if name=='(available)':
+                        colnum = 0 
+                    if name=='(swap_free)':
                         colnum = 0 
                     
                     #print `curses.color_pair(colnum)` 

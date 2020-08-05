@@ -19,11 +19,21 @@ Tries to group some known process sets, e.g.
 - [smem](https://www.selenic.com/smem/) CLI tool (optional)
 
 
-### Very much an experiment
-In particular square-mem is a test, because getting things like shared memory right is important to accuracy in some uses.
+### square-cpu
 
-One good example is postgres workers extensively using shared memory for table data, so just  processes' mapped total would over-report use more than a little. Also sums up to total memory would look weird.
-The smem tool fixes this, but is slowish and CPU-heavy. Which is why this isn't the default right now.
+Shows overall percentage. Sums to ~100%, regardless of core amount.
+
+
+### square-mem
+
+This one's a test, because
+- getting things like shared memory right is important to accuracy in some uses. One good example is postgres workers extensively using shared memory for table data, so just  processes' mapped total would over-report use more than a little. Also sums up to total memory would look weird. The smem tool fixes this, but is slowish and CPU-heavy. Which is why this isn't the default right now.
+- how things like buffers, caches, slab, etc sum up and are best reported varies. Also because of practice - it e.g. out that ZFS ARC reports as unreclaimable slab.
+
+### square-swap
+
+Shows how swapped-out size, by program names. Based on /proc/*/status 
+
 
 ### TODO
 - learn curses better

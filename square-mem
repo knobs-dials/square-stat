@@ -166,8 +166,11 @@ def main():
 
     p.add_option('-S','--show-swap',  default=False,   action="store_true", dest="showswap",
                  help="Add used and free swap")
-    
+
+    p.add_option('-i','--interval',  default=0.5,   action="store", dest="interval",
+                 help="Interval (sleep time) between measuring/showing. (note that something higher will be used when using smem)")    
     options,args = p.parse_args()
+    interval = float(options.interval)
     
 
     
@@ -265,8 +268,9 @@ def main():
             pername['(k/dirty)'] = mi['Dirty']
             pername['(k/writeback)'] = mi['Writeback']
             pername['(k/slab unreclaim)'] = mi['SUnreclaim']  # note: SReclaimable is counted towards caches
-            # CONSIDER using slabinfor to estimate largest abusers, e.g. ZFS ARC. (Except I don't think you can tell the differene between reclaim and unreclaim)
-
+            # CONSIDER
+            # - using /proc/spl/kstat/zfs/arcstats to split off ZFS, which if used will make SUnreclaim large due to its ARC
+            # - using slabinfo to estimate largest abusers (Except I don't think you can tell the differene between reclaim and unreclaim)
             SH  = mi['Shmem'] # TODO: figure out whether this does exactly what I think
             #CL  = mi['CommitLimit']
             #CAS = mi['Committed_AS']
@@ -359,9 +363,9 @@ def main():
                 #del wins
 
             if options.ashare:
-                time.sleep(5) # back off the CPU use if we're using smem
+                time.sleep(5*interval) # back off the CPU use if we're using smem
             else:
-                time.sleep(0.25)
+                time.sleep(interval)
                 
     finally:
         curses.endwin()

@@ -124,8 +124,10 @@ def main():
 
     p.add_option('-f','--show-free',  default=False,   action="store_true", dest="showfree",
                  help="Show free space too")
-    
+    p.add_option('-i','--interval',  default=0.5,   action="store", dest="interval",
+                 help="Interval (sleep time) between measuring/showing.")    
     options,args = p.parse_args()
+    interval = float(options.interval)
         
     screen = curses.initscr()
     try:
@@ -263,7 +265,7 @@ def main():
                     pass # assume it's because we're tring to draw out of screen due to rounding blah I should look at 
                 win.refresh()
 
-            time.sleep( 1 )
+            time.sleep( interval )
         
     finally:
         curses.endwin()

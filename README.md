@@ -32,7 +32,7 @@ This one's a test, because
 
 ### square-swap
 
-Shows how nig the swapped-out size by program names. Based on /proc/*/status 
+Shows how swapped-out size, by program names. Based on /proc/*/status 
 
 
 ### TODO

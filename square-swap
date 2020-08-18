@@ -122,10 +122,8 @@ def fetch_procmem():
 def main():
     p=optparse.OptionParser()
 
-    p.add_option('-f','--show-free',  default=False,   action="store_true", dest="showfree",
-                 help="Show free space too")
-    p.add_option('-i','--interval',  default=0.5,   action="store", dest="interval",
-                 help="Interval (sleep time) between measuring/showing.")    
+    p.add_option('-F','--no-unused',  default=True,  action="store_false", dest="showunused",     help="Show unused space too")
+    p.add_option('-i','--interval',   default=0.5,   action="store",       dest="interval",       help="Interval (sleep time) between measuring/showing.")    
     options,args = p.parse_args()
     interval = float(options.interval)
         
@@ -200,9 +198,9 @@ def main():
                 except IOError: # process entry left beween glob and open
                     pass
                     
-            if options.showfree:                
+            if options.showunused:                
                 d = fetch_procmem()
-                pername['(free)'] = d['SwapFree']
+                pername['(unused)'] = d['SwapFree']
 
             
             # make list, filter, sum everything under 1% into 'small misc', sort
@@ -212,7 +210,7 @@ def main():
             temp=[]
             restsize=0
             for name, mem in name_mem:
-                if mem < size_thresh and name not in ('(free)'):
+                if mem < size_thresh and name not in ('(unused)'):
                     restsize+=mem
                 else:
                     temp.append( (name,mem) )
@@ -254,7 +252,7 @@ def main():
                         checksum = sum(list(ord(c) for c in name))
                     colnum = 1+ (checksum%num_inited_cols)
                     
-                    if name=='(free)':
+                    if name=='(unused)':
                         colnum = 0 
                     
                     #print `curses.color_pair(colnum)` 

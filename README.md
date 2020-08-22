@@ -3,13 +3,13 @@
 Text-shell squarified treemaps presenting things like CPU and memory use - in text shells.
 
 Tries to group some known process sets, e.g. 
-- filesystem-related processes
-- other kernel stuff
+- group filesystem-related kernel processes
+- other kernel processes
 - systemd stuff 
 - various GNOME stuff 
-- small-use processes into 'sumsmaller' so they don't fall away (still tends to be tiny)
+- tiny -use processes into 'sumsmaller' so they don't fall away (still tends to be small)
 
-...all mostly because a shell isn't exactly high resolution, and this is for a glanced overview.
+...all mostly because a shell isn't exactly high resolution, and this is for a useful glanced overview.
 
 ![CPU and memory, split in tmux](/screenshots/squarestuff.png?raw=true)
 

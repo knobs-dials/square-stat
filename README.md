@@ -1,4 +1,4 @@
-# squarestuff
+# square-stat
 
 Text-shell squarified treemaps presenting things like CPU and memory use - in text shells.
 

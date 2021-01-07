@@ -22,7 +22,7 @@ Tries to group some known process sets, e.g.
 
 ### square-cpu
 
-Shows overall percentage. Sums to ~100%, regardless of core amount.
+Shows overall percentage. Sums to ~100%, regardless of core amount. Based on running `ps`
 
 
 ### square-mem
@@ -30,6 +30,9 @@ Shows overall percentage. Sums to ~100%, regardless of core amount.
 This one's a test, because
 - counting kernel stuff *usefully* is nontrivial - consider buffers, caches, slab, etc, and how some details overlap, so how they are and are best reported. Also because of practice - it e.g. turns out that ZFS ARC reports as unreclaimable slab (and is usually large, intentionally).
 - getting shared memory right is important to accuracy in some uses. One good example is postgresql workers extensively using shared memory for table data, so just adding processes' mapped total would over-report use more than a little, and the sum of total memory would be noticably wrong. The smem tool fixes this, but is slowish and CPU-heavy. Which is why this isn't the default right now.
+
+Based on running `ps` or `smem`
+
 
 ### square-swap
 

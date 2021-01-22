@@ -3,7 +3,7 @@
 Text-shell squarified treemaps presenting things like CPU and memory use - in text shells.
 
 Tries to group some known process sets, e.g. 
-- group filesystem-related kernel processes
+- filesystem-related kernel processes
 - other kernel processes
 - systemd stuff 
 - various GNOME stuff 

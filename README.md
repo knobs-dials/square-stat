@@ -9,7 +9,7 @@ Tries to group some known process sets, e.g.
 - various GNOME stuff 
 - tiny-use processes into 'sumsmaller' so they don't fall away (still tends to be small)
 
-...all mostly because a shell isn't exactly high resolution, and this is for a useful glanced overview.
+...all mostly because a shell isn't exactly high resolution, and this is for glanced overview.
 
 ![CPU and memory, split in tmux](/screenshots/squarestuff.png?raw=true)
 

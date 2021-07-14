@@ -1,5 +1,7 @@
 # square-stat
 
+(Proof of concept version, needs work)
+
 Text-shell squarified treemaps presenting things like CPU and memory use - in text shells.
 
 Tries to group some known process sets, e.g. 

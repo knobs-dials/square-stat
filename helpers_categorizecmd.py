@@ -64,6 +64,7 @@ def categorize_cmd(cmd):
     return cmd
 
 if __name__ == '__main__':
+    # testing the above 
     import subprocess
     p = subprocess.Popen("ps --no-header -eo comm",shell=True, stdout=subprocess.PIPE)        # rss is non-swapped physical
     out,_ = p.communicate()

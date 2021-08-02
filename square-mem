@@ -197,6 +197,7 @@ def main():
     if options.ashare:
         try:
             p = subprocess.Popen(["/usr/bin/smem",'-n','-H', '-c','pid name pss swap'],shell=False, stdout=subprocess.PIPE)
+            p.wait()
         except OSError:
             options.ashare = False
             print "WARNING: not doing accurate shared memory reporting (smem not present, falling back to ps)"

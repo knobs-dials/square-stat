@@ -65,7 +65,6 @@ def kmg(amount,kilo=1000, append='',thresh=15, nextup=0.9, rstrip0=True, extradi
     nextup = float(nextup)
 
     # Yes, could be handled a bunch more more compactly (and used to be)
-
     showdigits=0
     if abs(amount) < nextup*kilo: # less than a kilo; omits multiplier and i
         showval = amount
@@ -89,15 +88,11 @@ def kmg(amount,kilo=1000, append='',thresh=15, nextup=0.9, rstrip0=True, extradi
                 if i_for_1024 and kilo==1024:
                     append += 'i'
                 break
-
     ret = ("%%.%df"%(showdigits))%showval
-
     if rstrip0:
         if '.' in ret:
             ret=ret.rstrip('0').rstrip('.')
-
-    ret+=append
-
+    ret += append
     return ret
 
 
@@ -202,7 +197,6 @@ def main():
                 d = fetch_procmem()
                 pername['(unused)'] = d['SwapFree']
 
-            
             # make list, filter, sum everything under 1% into 'small misc', sort
             name_mem = pername.items()
                         
@@ -213,15 +207,20 @@ def main():
                 if mem < size_thresh and name not in ('(unused)'):
                     restsize+=mem
                 else:
-                    temp.append( (name,mem) )
-            temp.append( ('(sumsmaller)', restsize) )
+                    if mem>0:
+                        temp.append( (name,mem) )
+            if restsize>0:
+                temp.append( ('(sumsmaller)', restsize) )
             name_mem = temp
 
             name_mem.sort(lambda a,b:-cmp(a[1],b[1]))
 
             rsses = list(mem   for name, mem in name_mem)
             normed = squarify.normalize_sizes(rsses, curses.COLS,curses.LINES)
-            rects = squarify.squarify(normed, 0, 0, curses.COLS,curses.LINES)
+            try:
+                rects = squarify.squarify(normed, 0, 0, curses.COLS,curses.LINES)
+            except ZeroDivisionError:
+                raise ValueError( repr(normed) )
 
             full = curses.newwin(curses.LINES,curses.COLS,0,0)
             full.clear()
@@ -240,29 +239,20 @@ def main():
                 try:
                     win = curses.newwin(h,w,y,x)
                     name = name_mem[i][0]
-
-                    #win.border()
                     win.addstr(1,1, name[:max(0,w-1)] )
                     win.addstr(2,1, ('%sB'%kmg(name_mem[i][1],kilo=1024))[:max(0,w-1)]  )
-                    #win.border('|', '|', '-', '-', '+','+','+','+')
                     try:
                         import binascii
                         checksum = abs(binascii.crc32(name))
                     except:
                         checksum = sum(list(ord(c) for c in name))
                     colnum = 1+ (checksum%num_inited_cols)
-                    
                     if name=='(unused)':
-                        colnum = 0 
-                    
-                    #print `curses.color_pair(colnum)` 
-                    #r,g,b = curses.color_content(colnum)
-                    #win.addstr(3,1, ('col %s|%s %s %s'%(colnum,r,g,b))[:max(0,w-1)]  )
+                        colnum = 0
                     win.bkgd( ' ', curses.color_pair(colnum) )
                 except curses.error:
                     pass # assume it's because we're tring to draw out of screen due to rounding blah I should look at 
                 win.refresh()
-
             time.sleep( interval )
         
     finally:

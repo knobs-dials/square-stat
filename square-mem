@@ -101,6 +101,29 @@ def kmg(amount,kilo=1000, append='',thresh=15, nextup=0.9, rstrip0=True, extradi
 
     return ret
 
+def parse_kmg(str, kilo=1024):
+    " E.g. '1MB' -> 1048576.   Quick and dirty implementation, could stand cleaning "
+    #if type(str) is int:
+    #    return str
+    try:
+        ns = str.rstrip('kmgtbKMGTBiI')
+        ret = float(ns)
+        sl = str.lower()
+        if 'k' in sl:
+            ret *= kilo
+        if 'm' in sl:
+            ret *= kilo*kilo
+        if 'g' in sl:
+            ret *= kilo*kilo*kilo
+        if 't' in sl:
+            ret *= kilo*kilo*kilo*kilo
+        ret=int(ret)
+        return ret
+    except Exception as e:        
+        print( "Didn't understand value %r"%str )
+        print( e )
+        raise
+
 
 def fetch_procmem():
     ' mostly used for totals, which smem and ps do not report ' 
@@ -157,22 +180,19 @@ def fetch_ps():
 
 
 
-
 def main():
     p=optparse.OptionParser()
-
     p.add_option('-s','--accurate-shared',  default=False,   action="store_true", dest="ashare",
                  help="Count shared memory more accurately. Slow, only really necessary when you have much of it. Uses smem, which you need to install. Falls back on not doing this, i.e. using ps.")
-
-    p.add_option('-S','--show-swap',  default=False,   action="store_true", dest="showswap",
+    p.add_option('-S','--show-swap',        default=False,   action="store_true", dest="showswap",
                  help="Add used and free swap")
-
+    p.add_option('-g','--group-small',      default='200M',   action="store", dest="smallthresh",
+                 help="Anything smaller than this is summed into a single item called (sumsmaller). Default is 200M which is more fit to smaller screens and seeing single large memory users.")
     p.add_option('-i','--interval',  default=0.5,   action="store", dest="interval",
                  help="Interval (sleep time) between measuring/showing. (note that something higher will be used when using smem)")    
     options,args = p.parse_args()
-    interval = float(options.interval)
-    
-
+    interval     = float(options.interval)
+    smallthresh  = parse_kmg(options.smallthresh)
     
     if options.ashare:
         try:
@@ -185,7 +205,7 @@ def main():
         print "INFO: Using faster reporting - that doesn't show shared memory so well"
         
     if options.ashare and os.getuid()!=0:
-        print "WARNING: Using smem but not running as root / via sudo:  summary will exclude system"
+        print "WARNING: Using smem but not running as root / via sudo, so memory summary will exclude system processes"
         time.sleep(5)
     
     screen = curses.initscr()
@@ -293,7 +313,7 @@ def main():
             # make list, filter, sum everything under 1% into 'small misc', sort
             name_mem = pername.items()
 
-            size_thresh = 100*mega  # 0.003*MT
+            size_thresh = smallthresh   # 80*mega  # 0.003*MT # TODO: parametrize
             temp=[]
             restsize=0
             for name, mem in name_mem:

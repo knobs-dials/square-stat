@@ -2,13 +2,12 @@
 
 (Proof of concept version, needs work)
 
-Text-shell squarified treemaps presenting things like CPU and memory use - in text shells.
+Colored text-shell squarified treemaps presenting things like CPU and memory use.
 
 Tries to group some known process sets, e.g. 
 - filesystem-related kernel processes
 - other kernel processes
-- systemd stuff 
-- various GNOME stuff 
+- various graphical interface support stuff 
 - tiny-use processes into 'sumsmaller' so they don't fall away (still tends to be small)
 
 ...all mostly because a shell isn't exactly high resolution, and this is for glanced overview.

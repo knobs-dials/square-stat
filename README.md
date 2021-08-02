@@ -37,7 +37,7 @@ Based on running `ps` or `smem`
 
 ### square-swap
 
-Shows how swapped-out size, by program names. Based on /proc/*/status 
+Shows how swapped-out (/ allocated-in-swap) size, by program names. Based on /proc/*/status 
 
 
 ### TODO

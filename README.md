@@ -23,7 +23,9 @@ Tries to group some known process sets, e.g.
 
 ### square-cpu
 
-Shows overall percentage. Sums to ~100%, regardless of core amount. Based on running `ps`
+Shows overall percentage. Sums to ~100%, regardless of core amount.
+
+Based on running `ps`
 
 
 ### square-mem
@@ -37,7 +39,9 @@ Based on running `ps` or `smem`
 
 ### square-swap
 
-Shows how swapped-out (/ allocated-in-swap) size, by program names. Based on /proc/*/status 
+Shows how swapped-out (/ allocated-in-swap) size, by program names.
+
+Based on reading `/proc/*/status`
 
 
 ### TODO

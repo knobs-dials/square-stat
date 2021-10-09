@@ -33,8 +33,9 @@ Based on running `ps`
 This one's a test, because
 - counting kernel stuff *usefully* is nontrivial - consider buffers, caches, slab, etc, and how some details overlap, so how they are and are best reported. 
   - Also because of practice.  It e.g. turns out that in linux, ZFS ARC reports as unreclaimable slab - and is intentionally quite large.
-- getting shared memory right is important to accuracy in some uses. One good example is postgresql workers extensively using shared memory for efficient sharing of table data. 
-  - Just adding processes' mapped total would over-report use quite a lot, and the sum of total memory, or free amount (from total-alluse) would be noticably wrong.
+- basic tools don't care abous shared memory at all
+  - getting shared memory right is important to accuracy in some uses. One good example is postgresql workers, which extensively using shared memory for efficient sharing of table data.
+  - ...in which case just adding up processes totals would over-report quite a lot. The sum of total memory, or free amount (from total-alluse) would also be noticably wrong.
   - The `smem` tool fixes this, but is slowish and CPU-heavy. Which is why this isn't the default right now.
 
 Based on running `ps` or `smem`

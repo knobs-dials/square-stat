@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 import time
 import curses
 import math
@@ -90,7 +90,7 @@ def main():
                 curses.resizeterm(y, x)
 
 
-            p = subprocess.Popen("ps --no-header -eo pid,pcpu,comm",shell=True, stdout=subprocess.PIPE)        # rss is non-swapped physical
+            p = subprocess.Popen("ps --no-header -eo pid,pcpu,comm",shell=True, stdout=subprocess.PIPE, encoding='utf8')        # rss is non-swapped physical
             out,_ = p.communicate()
             pid_cmd_pcpu = {}
             for line in out.splitlines():
@@ -139,7 +139,7 @@ def main():
             name_cpu = list( (name,(100.*pcpu)/totalpercent)   for name,pcpu in name_cpu)
 
 
-            name_cpu.sort(lambda a,b:-cmp(a[1],b[1]))
+            name_cpu.sort(key=lambda x:x[1], reverse=True)
 
             pcpus = list(pcpu   for name, pcpu in name_cpu)
             # exhaggerate size of the smaller ones somewhat, for readability

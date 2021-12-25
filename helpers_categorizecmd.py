@@ -1,9 +1,9 @@
 
 
 
-def starts_with_one_of(s, slist):
-    for tests in slist:
-        if s.startswith(tests):
+def starts_with_one_of(s, stringlist):
+    for test in stringlist:
+        if s.startswith(test):
             return True
     return False
 

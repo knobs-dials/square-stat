@@ -186,13 +186,18 @@ def main():
                  help="Count shared memory more accurately. Slow, only really necessary when you have much of it. Uses smem, which you need to install. Falls back on not doing this, i.e. using ps.")
     p.add_option('-S','--show-swap',        default=False,   action="store_true", dest="showswap",
                  help="Add used and free swap")
-    p.add_option('-g','--group-small',      default='200M',   action="store", dest="smallthresh",
-                 help="Anything smaller than this is summed into a single item called (sumsmaller). Default is 200M which is more fit to smaller screens and seeing single large memory users.")
+    p.add_option('-g','--group-small',      default='.005',   action="store", dest="smallthresh",
+                 help="Anything smaller than this is summed into a single item called (sumsmaller). Can be either a size like 200M, or a fraction interpreted that will be multiplied by MemTotal. Default is 0.005 (meaning half a percent)")
     p.add_option('-i','--interval',  default=0.5,   action="store", dest="interval",
                  help="Interval (sleep time) between measuring/showing. (note that something higher will be used when using smem)")    
     options,args = p.parse_args()
     interval     = float(options.interval)
-    smallthresh  = parse_kmg(options.smallthresh)
+    try:
+        smallthresh = float(options.smallthresh)
+        if smallthresh > 1:
+            raise ValueError('not a fraction')
+    except ValueError:
+        smallthresh  = parse_kmg(options.smallthresh)
     
     if options.ashare:
         try:
@@ -314,10 +319,13 @@ def main():
             # make list, filter, sum everything under 1% into 'small misc', sort
             name_mem = pername.items()
 
-            size_thresh = smallthresh   # 80*mega  # 0.003*MT # TODO: parametrize
+            if smallthresh < 1: # treat as faction of MemTotal
+                size_thresh = smallthresh * MT
+            else:
+                size_thresh = smallthresh
             temp=[]
             restsize=0
-            for name, mem in name_mem:
+            for name, mem in name_mem:                
                 if mem < size_thresh and name not in ('(unused)','(caches, usable)'):
                     restsize+=mem
                 else:

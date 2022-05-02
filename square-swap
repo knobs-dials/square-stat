@@ -197,7 +197,8 @@ def main():
             # make list, filter, sum everything under 1% into 'small misc', sort
             name_mem = pername.items()
                         
-            size_thresh = 10*mega  # 0.001*MT
+            #size_thresh = 100*mega
+            size_thresh = 0.01*d['SwapTotal']
             temp=[]
             restsize=0
             for name, mem in name_mem:

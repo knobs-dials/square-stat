@@ -36,7 +36,7 @@ This one's a test, because
 - basic tools don't care abous shared memory at all
   - getting shared memory right is important to accuracy in some uses. One good example is postgresql workers, which extensively using shared memory for efficient sharing of table data.
   - ...in which case just adding up processes totals would over-report quite a lot. The sum of total memory, or free amount (from total-alluse) would also be noticably wrong.
-  - The `smem` tool fixes this, but is slowish and CPU-heavy. Which is why this isn't the default right now.
+  - The `smem` tool fixes this, but is slowish and CPU-heavy (not the tool's fault, it's the kernel's information that takes time). Which is why this isn't the default right now.
 
 Based on running `ps` or `smem`
 

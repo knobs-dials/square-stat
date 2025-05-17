@@ -54,4 +54,4 @@ Based on reading `/proc/*/status`
     - fix layouting bugs (it's integer rounding things)
     - fix redrawing
 
-
+Note that there is no point in doing this for the filesystem when things like [diskonaut](https://github.com/imsnif/diskonaut) exist.
